@@ -1,0 +1,7 @@
+.env
+*.pyc
+__pycache__/
+venv/
+node_modules/
+*.teal
+!contracts/teal/*.teal

@@ -1,0 +1,473 @@
+#pragma version 10
+txn ApplicationID
+int 0
+==
+bnz main_l19
+txn OnCompletion
+int OptIn
+==
+bnz main_l15
+txn OnCompletion
+int NoOp
+==
+txn NumAppArgs
+int 0
+>
+&&
+txna ApplicationArgs 0
+byte "asset_optin"
+==
+&&
+bnz main_l14
+txn OnCompletion
+int NoOp
+==
+txn NumAppArgs
+int 0
+>
+&&
+txna ApplicationArgs 0
+byte "fund"
+==
+&&
+bnz main_l11
+txn OnCompletion
+int NoOp
+==
+txn NumAppArgs
+int 0
+>
+&&
+txna ApplicationArgs 0
+byte "claim"
+==
+&&
+bnz main_l10
+txn OnCompletion
+int NoOp
+==
+txn NumAppArgs
+int 0
+>
+&&
+txna ApplicationArgs 0
+byte "set_backend"
+==
+&&
+bnz main_l9
+int 1
+bnz main_l8
+err
+main_l8:
+int 0
+return
+main_l9:
+txn RekeyTo
+global ZeroAddress
+==
+assert
+txn CloseRemainderTo
+global ZeroAddress
+==
+assert
+txn AssetCloseTo
+global ZeroAddress
+==
+assert
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+txn NumAppArgs
+int 2
+==
+assert
+txna ApplicationArgs 1
+len
+int 32
+==
+assert
+byte "backend_key"
+txna ApplicationArgs 1
+app_global_put
+int 1
+return
+main_l10:
+txn RekeyTo
+global ZeroAddress
+==
+assert
+txn CloseRemainderTo
+global ZeroAddress
+==
+assert
+txn AssetCloseTo
+global ZeroAddress
+==
+assert
+global GroupSize
+int 1
+>=
+assert
+txn Fee
+global MinTxnFee
+int 2
+*
+>=
+assert
+txn NumAppArgs
+int 4
+==
+assert
+txna ApplicationArgs 2
+len
+int 32
+==
+assert
+txna ApplicationArgs 3
+len
+int 64
+==
+assert
+txna ApplicationArgs 1
+btoi
+int 0
+>
+assert
+txn Sender
+global CurrentApplicationID
+app_opted_in
+assert
+callsub canclaimtoday_1
+assert
+byte "pool_id"
+app_global_get
+int 0
+>
+assert
+byte "start_date"
+app_global_get
+int 0
+>
+assert
+global LatestTimestamp
+byte "start_date"
+app_global_get
+>=
+assert
+global LatestTimestamp
+byte "end_date"
+app_global_get
+<=
+assert
+txn Sender
+byte "pool_id"
+app_global_get
+itob
+concat
+txna ApplicationArgs 1
+btoi
+itob
+concat
+txna ApplicationArgs 2
+concat
+txna ApplicationArgs 3
+byte "backend_key"
+app_global_get
+ed25519verify
+assert
+byte "claimed"
+app_global_get
+txna ApplicationArgs 1
+btoi
++
+byte "deposited"
+app_global_get
+<=
+assert
+global CurrentApplicationAddress
+byte "reward_token"
+app_global_get
+asset_holding_get AssetBalance
+store 1
+store 0
+load 1
+assert
+load 0
+txna ApplicationArgs 1
+btoi
+>=
+assert
+byte "claimed"
+byte "claimed"
+app_global_get
+txna ApplicationArgs 1
+btoi
++
+app_global_put
+txn Sender
+byte "last_day"
+callsub getcurrentday_0
+app_local_put
+itxn_begin
+int axfer
+itxn_field TypeEnum
+byte "reward_token"
+app_global_get
+itxn_field XferAsset
+txn Sender
+itxn_field AssetReceiver
+txna ApplicationArgs 1
+btoi
+itxn_field AssetAmount
+int 0
+itxn_field Fee
+itxn_submit
+int 1
+return
+main_l11:
+txn RekeyTo
+global ZeroAddress
+==
+assert
+txn CloseRemainderTo
+global ZeroAddress
+==
+assert
+txn AssetCloseTo
+global ZeroAddress
+==
+assert
+txn NumAppArgs
+int 1
+==
+assert
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+global GroupSize
+int 2
+==
+assert
+txn GroupIndex
+int 1
+==
+assert
+gtxn 0 TypeEnum
+int axfer
+==
+assert
+gtxn 0 XferAsset
+byte "reward_token"
+app_global_get
+==
+assert
+gtxn 0 AssetReceiver
+global CurrentApplicationAddress
+==
+assert
+gtxn 0 Sender
+byte "creator"
+app_global_get
+==
+assert
+gtxn 0 RekeyTo
+global ZeroAddress
+==
+assert
+gtxn 0 CloseRemainderTo
+global ZeroAddress
+==
+assert
+gtxn 0 AssetCloseTo
+global ZeroAddress
+==
+assert
+gtxn 0 AssetAmount
+int 0
+>
+assert
+byte "funding"
+app_global_get
+int 0
+==
+bnz main_l13
+main_l12:
+byte "deposited"
+byte "deposited"
+app_global_get
+gtxn 0 AssetAmount
++
+app_global_put
+byte "funded_once"
+int 1
+app_global_put
+int 1
+return
+main_l13:
+byte "funded_once"
+app_global_get
+int 0
+==
+assert
+b main_l12
+main_l14:
+txn RekeyTo
+global ZeroAddress
+==
+assert
+txn CloseRemainderTo
+global ZeroAddress
+==
+assert
+txn AssetCloseTo
+global ZeroAddress
+==
+assert
+txn NumAppArgs
+int 1
+==
+assert
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+byte "reward_token"
+app_global_get
+itxn_field XferAsset
+global CurrentApplicationAddress
+itxn_field AssetReceiver
+int 0
+itxn_field AssetAmount
+int 0
+itxn_field Fee
+itxn_submit
+int 1
+return
+main_l15:
+txn RekeyTo
+global ZeroAddress
+==
+assert
+txn CloseRemainderTo
+global ZeroAddress
+==
+assert
+txn AssetCloseTo
+global ZeroAddress
+==
+assert
+txn Sender
+byte "last_day"
+callsub getcurrentday_0
+int 0
+>
+bnz main_l18
+int 0
+main_l17:
+app_local_put
+int 1
+return
+main_l18:
+callsub getcurrentday_0
+int 1
+-
+b main_l17
+main_l19:
+txn RekeyTo
+global ZeroAddress
+==
+assert
+txn CloseRemainderTo
+global ZeroAddress
+==
+assert
+txn AssetCloseTo
+global ZeroAddress
+==
+assert
+txn NumAppArgs
+int 7
+==
+assert
+txna ApplicationArgs 0
+len
+int 32
+==
+assert
+txna ApplicationArgs 1
+btoi
+int 0
+>
+assert
+txna ApplicationArgs 2
+btoi
+int 0
+>
+assert
+byte "creator"
+txn Sender
+app_global_put
+byte "backend_key"
+txna ApplicationArgs 0
+app_global_put
+byte "reward_token"
+txna ApplicationArgs 1
+btoi
+app_global_put
+byte "pool_id"
+txna ApplicationArgs 2
+btoi
+app_global_put
+byte "funding"
+txna ApplicationArgs 3
+btoi
+app_global_put
+byte "dist_type"
+txna ApplicationArgs 4
+btoi
+app_global_put
+byte "start_date"
+txna ApplicationArgs 5
+btoi
+app_global_put
+byte "end_date"
+txna ApplicationArgs 6
+btoi
+app_global_put
+byte "deposited"
+int 0
+app_global_put
+byte "claimed"
+int 0
+app_global_put
+byte "funded_once"
+int 0
+app_global_put
+int 1
+return
+
+// get_current_day
+getcurrentday_0:
+proto 0 1
+global LatestTimestamp
+int 86400
+/
+retsub
+
+// can_claim_today
+canclaimtoday_1:
+proto 0 1
+callsub getcurrentday_0
+txn Sender
+byte "last_day"
+app_local_get
+!=
+retsub
