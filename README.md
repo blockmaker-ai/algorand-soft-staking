@@ -100,6 +100,11 @@ scripts/
   utils/
     merkle_utils.py        # Python Merkle tree implementation (matches contract)
 
+extras/
+  algorand-matrix/         # Bonus: live blockchain visualiser (matrix rain effect)
+    AlgorandMatrix.jsx     # Drop-in React component
+    README.md              # Integration guide
+
 .env.example               # Environment variable template
 ```
 
@@ -337,6 +342,16 @@ pool_id = int(hashlib.sha256(uuid.encode()).hexdigest()[:16], 16)
 
 ### Soft staking tradeoff
 Tokens remain in the user's wallet. The system checks balances at epoch generation (snapshot) and at claim time, but does not track transaction history between these checkpoints. This is a deliberate design choice — full transaction monitoring would require expensive indexer queries and add latency, while the economic incentive to game soft staking (moving tokens between wallets between snapshots) is bounded by the per-epoch reward rate.
+
+---
+
+## Bonus: AlgorandMatrix
+
+The `extras/algorand-matrix/` folder contains a drop-in React component that renders live Algorand transactions as a matrix-style falling character rain. It connects to public Algorand nodes (no API key needed) and color-codes transactions by type.
+
+You can optionally highlight transactions from holders of specific tokens or NFT collections — just pass asset IDs or creator addresses as props.
+
+See [`extras/algorand-matrix/README.md`](extras/algorand-matrix/README.md) for the full integration guide.
 
 ---
 
