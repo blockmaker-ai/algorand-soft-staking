@@ -132,17 +132,31 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Query the LATEST epoch for this user and pool
-    const { data: claims, error } = await supabase
+    // Query the latest PUBLISHED epoch (claimable) and the latest overall (may be pending)
+    const { data: publishedClaim } = await supabase
       .from('merkle_epoch_claims')
       .select('*')
       .eq('pool_id', pool_id)
       .eq('user_address', address)
+      .eq('is_published', true)
       .order('epoch_id', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (error || !claims) {
+    const { data: latestClaim } = await supabase
+      .from('merkle_epoch_claims')
+      .select('epoch_id, cumulative_amount')
+      .eq('pool_id', pool_id)
+      .eq('user_address', address)
+      .order('epoch_id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // Use the published epoch for the proof (that's what can actually be claimed).
+    // Fall back to latest if nothing is published yet (shows as pending).
+    const claims = publishedClaim || latestClaim
+
+    if (!claims) {
       return new Response(
         JSON.stringify({ error: 'No rewards available' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -356,6 +370,11 @@ serve(async (req) => {
       is_published = false
     }
 
+    // Include pending amount from a newer unpublished epoch if one exists
+    const pendingCumulative = (latestClaim && latestClaim.epoch_id > claims.epoch_id)
+      ? latestClaim.cumulative_amount
+      : null
+
     // Return the proof data with publication status
     return new Response(
       JSON.stringify({
@@ -365,8 +384,10 @@ serve(async (req) => {
         app_id: pool.contract_app_id,
         contract_version: pool.contract_version || 'puya',
         pool_id_int: pool_id_uint,
-        is_published: is_published,  // ✅ NEW: Whether epoch is verified on-chain
-        merkle_root: expected_root,  // ✅ NEW: Expected root for debugging
+        is_published: is_published,
+        merkle_root: expected_root,
+        pending_cumulative: pendingCumulative,
+        pending_epoch_id: pendingCumulative ? latestClaim.epoch_id : null,
         message: is_published
           ? `✅ VERIFIED - Epoch ${claims.epoch_id} published on-chain`
           : `⏳ PENDING - Epoch ${claims.epoch_id} not yet published`
