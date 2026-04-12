@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS pools (
 
   -- Smart contract
   contract_app_id         BIGINT,         -- Deployed Algorand app ID
+  contract_version        TEXT DEFAULT 'puya' CHECK (contract_version IN ('puya', 'pyteal')),
 
   -- Metadata
   pool_description        TEXT,

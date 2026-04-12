@@ -152,7 +152,7 @@ serve(async (req) => {
     // Get pool info for app_id and balance verification
     const { data: pool, error: poolError } = await supabase
       .from('pools')
-      .select('contract_app_id, pool_type, staking_token_id, lp_token_id, nft_collection_id, staking_token_decimals, end_date, status')
+      .select('contract_app_id, contract_version, pool_type, staking_token_id, lp_token_id, nft_collection_id, staking_token_decimals, end_date, status')
       .eq('id', pool_id)
       .single()
 
@@ -363,6 +363,7 @@ serve(async (req) => {
         cumulative: claims.cumulative_amount,
         proof: claims.proof || [],
         app_id: pool.contract_app_id,
+        contract_version: pool.contract_version || 'puya',
         pool_id_int: pool_id_uint,
         is_published: is_published,  // ✅ NEW: Whether epoch is verified on-chain
         merkle_root: expected_root,  // ✅ NEW: Expected root for debugging

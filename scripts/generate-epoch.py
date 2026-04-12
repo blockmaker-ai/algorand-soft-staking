@@ -24,13 +24,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import hashlib
 
-# Add parent directory to path for merkle_utils import
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'contracts', 'pyteal'))
+# Add utils directory to path for merkle_utils import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'utils'))
 
 try:
     from merkle_utils import MerkleTree
 except ImportError:
-    print("❌ Could not import merkle_utils. Make sure contracts/pyteal/merkle_utils.py exists")
+    print("❌ Could not import merkle_utils. Make sure scripts/utils/merkle_utils.py exists")
     sys.exit(1)
 
 # Load .env from project root

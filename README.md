@@ -2,6 +2,8 @@
 
 Open source multi-pool soft staking infrastructure with Merkle proof reward distribution on Algorand.
 
+**Smart contract: Algorand TypeScript (Puya)** — compiled to AVM bytecode via the [Puya compiler](https://github.com/algorandfoundation/puya-ts).
+
 Live implementation: [dao.polaris.city](https://dao.polaris.city)
 
 ---
@@ -39,7 +41,7 @@ A complete staking platform stack that lets any Algorand project run staking poo
 │    4. Store proofs + root in merkle_epoch_claims table  │
 │                                                         │
 │  Pool creator (or automated publisher)                  │
-│    5. Call set_root(epoch_id, merkle_root) on contract  │
+│    5. Call setEpochRoot(epoch_id, root) on contract     │
 │    6. Root stored in on-chain box storage               │
 └─────────────────────────────────────────────────────────┘
 
@@ -52,16 +54,16 @@ A complete staking platform stack that lets any Algorand project run staking poo
 │    3. Verify on-chain root matches expected root        │
 │    4. Return proof to frontend                          │
 │                                                         │
-│  Smart contract (claim)                                 │
+│  Smart contract (claimRewards)                          │
 │    5. Verify Merkle proof against stored root           │
 │    6. Pay delta = cumulative - last_claimed             │
-│    7. Update user box with new epoch + cumulative       │
+│    7. Update user BoxMap with new epoch + cumulative    │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ### Cumulative Reward Model
 
-Rewards are cumulative across epochs, not per-epoch. The contract stores the user's last claimed cumulative amount in a box. Each claim pays the **delta** between the new cumulative and the last claimed amount. This means:
+Rewards are cumulative across epochs, not per-epoch. The contract stores the user's last claimed cumulative amount in a BoxMap. Each claim pays the **delta** between the new cumulative and the last claimed amount. This means:
 
 - Users can skip epochs without losing rewards
 - A single claim catches up all missed epochs
@@ -77,68 +79,107 @@ Rewards are cumulative across epochs, not per-epoch. The contract stores the use
 
 ```
 contracts/
-  pyteal/
-    main.py              # Contract router + compilation entry point
-    state.py             # Global state keys and constants
-    helpers.py           # Merkle verification, leaf hashing, utilities
-    pool_setup.py        # initialize(), opt_in_asset(), fund_pool()
-    user_operations.py   # opt_in_user(), claim_rewards(), delete_box()
-    admin_operations.py  # set_epoch_root(), pause, deprecate, fee management
-    budget_helper.py     # Minimal contract to extend opcode budget for claims
-    merkle_utils.py      # Python Merkle tree implementation (matches contract)
-  teal/
-    proxy_approval.teal  # Legacy proxy contract (pre-PyTeal, for reference only)
-    proxy_clear.teal     # Legacy proxy contract clear state
-    # Note: active contract compiles to merkle_approval_v1.3.3_FINAL.teal (run main.py)
+  puya/
+    StakingPool.algo.ts    # Contract source (Algorand TypeScript)
+    artifacts/
+      StakingPool.approval.teal   # Compiled approval program (AVM v11)
+      StakingPool.clear.teal      # Compiled clear state program
+      StakingPool.arc56.json      # ARC-56 application spec (methods, state, boxes)
+      StakingPool.arc32.json      # ARC-32 application spec
 
 supabase/
   schema/
-    001_core_schema.sql  # All tables: pools, user_stakes, merkle_epoch_claims, etc.
+    001_core_schema.sql    # All tables: pools, user_stakes, merkle_epoch_claims, etc.
   functions/
-    manage-stake/        # Deno edge function: stake / unstake with balance verification
-    get-merkle-proof/    # Deno edge function: fetch proof + verify on-chain publication
+    manage-stake/          # Deno edge function: stake / unstake with balance verification
+    get-merkle-proof/      # Deno edge function: fetch proof + verify on-chain publication
+    save-monthly-snapshots/  # Deno edge function: monthly APY snapshots for rolling pools
 
 scripts/
-  generate-epoch.py      # Calculate rewards + build Merkle trees for all active pools
+  generate-epoch.py        # Calculate rewards + build Merkle trees for all active pools
+  utils/
+    merkle_utils.py        # Python Merkle tree implementation (matches contract)
 
-.env.example             # Environment variable template
+.env.example               # Environment variable template
 ```
 
 ---
 
 ## Smart Contract
 
-### Deployment
+Written in [Algorand TypeScript](https://github.com/algorandfoundation/puya-ts) and compiled to TEAL bytecode via the Puya compiler. Targets AVM v11.
 
-```python
-# Compile
-cd contracts/pyteal
-pip install pyteal
-python main.py
-# Outputs: contracts/teal/merkle_approval_v1.3.3_FINAL.teal
+### Key improvements over PyTeal version
 
-# Deploy (using algokit or any deployment tool)
-# Pass these args to initialize():
-# [0] sponsor_address    (32 bytes)
-# [1] reward_token_id    (uint64 ASA ID)
-# [2] pool_id            (uint64 - your unique pool identifier)
-# [3] distribution_type  (0=daily, 1=weekly)
-# [4] funding_model      (0=one-time, 1=rolling)
-# [5] pool_start_date    (unix timestamp)
-# [6] pool_end_date      (unix timestamp)
-# [7] platform_fee_address (32 bytes)
-# [8] publisher_address  (32 bytes, optional - for automated publishing)
+| Feature | PyTeal (old) | Puya (current) |
+|---------|-------------|----------------|
+| User registration | Required app opt-in (unnecessary MBR) | No opt-in needed — BoxMap storage |
+| Opcode budget | Separate BudgetHelper contract | Built-in `ensureBudget` (OpUp pattern) |
+| ABI | Manual routing | Typed ABI methods with ARC-56 spec |
+| Claim fees | ~0.82 ALGO (first claim) | ~0.03 ALGO (first claim) |
+| Platform fee | 0.8 ALGO per claim (on-chain) | Removed from contract (handled off-chain) |
+
+### Build from Source
+
+```bash
+# Prerequisites: Node.js 18+, AlgoKit CLI
+cd contracts/puya
+
+# Install dependencies
+npm install
+
+# Compile contract (outputs to artifacts/)
+algokit project run build
 ```
 
-### Global State Keys
+Or use the pre-compiled TEAL in `contracts/puya/artifacts/`.
+
+### Deployment
+
+```typescript
+// Using the ARC-56 spec + AlgoKit Utils
+import { StakingPoolClient } from './artifacts/StakingPoolClient'
+
+const client = new StakingPoolClient({...})
+
+// Deploy with create() — all parameters set at creation
+await client.create.create({
+  sponsor: sponsorAddress,      // Pool creator
+  rewardTokenId: assetId,       // Reward ASA ID
+  poolId: uniquePoolId,         // uint64 pool identifier
+  fundingModel: 0,              // 0=one-time, 1=rolling
+  startDate: unixTimestamp,
+  endDate: unixTimestamp,
+  publisher: publisherAddress,  // Automated epoch publisher
+})
+
+// Then: optInAsset → fundPool → setEpochRoot (per epoch)
+```
+
+### ABI Methods
+
+| Method | Access | Description |
+|--------|--------|-------------|
+| `create(...)` | onCreate | Deploy and initialize pool |
+| `optInAsset()` | Admin | Contract opts into reward ASA |
+| `fundPool(axfer)` | Admin | Deposit reward tokens (grouped with AssetTransfer) |
+| `claimRewards(epochId, amount, proof)` | Anyone | Claim with Merkle proof |
+| `deleteBox()` | Anyone | Delete own claim box, recover MBR |
+| `setEpochRoot(epochId, root)` | Admin/Publisher | Publish epoch Merkle root |
+| `togglePause(state)` | Admin | Emergency pause/unpause |
+| `toggleDeprecated(state)` | Admin | One-way deprecation |
+| `emergencyWithdraw()` | Admin | Withdraw all rewards (deprecated pools only) |
+| `updateEndDate(date)` | Admin | Update informational end date |
+| `updatePublisher(addr)` | Admin | Change publisher address |
+
+### Global State
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `admin` | bytes | Platform/admin address |
-| `sponsor` | bytes | Pool creator address |
+| `admin` | Account | Platform/admin address |
+| `sponsor` | Account | Pool creator address |
 | `reward_token` | uint64 | Reward ASA ID |
 | `pool_id` | uint64 | Unique pool identifier (used in Merkle leaves) |
-| `dist_type` | uint64 | 0=daily, 1=weekly |
 | `funding` | uint64 | 0=one-time, 1=rolling |
 | `start_date` | uint64 | Pool start (unix timestamp) |
 | `end_date` | uint64 | Pool end (unix timestamp, informational) |
@@ -146,36 +187,28 @@ python main.py
 | `deposited` | uint64 | Total rewards deposited |
 | `paused` | uint64 | 0=active, 1=paused |
 | `deprecated` | uint64 | 0=active, 1=deprecated (irreversible) |
-| `publisher` | bytes | Address allowed to publish epoch roots |
+| `publisher` | Account | Address allowed to publish epoch roots |
 
 ### Box Storage
 
-| Box name | Value | Description |
-|----------|-------|-------------|
-| `Itob(epoch_id)` | 32 bytes | Merkle root for that epoch |
-| `SHA256(user_address \|\| pool_id)` | 16 bytes | User's last epoch (8) + last cumulative (8) |
+| Box key | Value | Description |
+|---------|-------|-------------|
+| `"u" + sender` (BoxMap) | `{lastEpoch: uint64, lastCumulative: uint64}` | User claim state |
+| `itob(epoch_id)` (dynamic Box) | 32 bytes | Merkle root for that epoch |
 
 ### Claim Transaction Group
 
 **First claim (no user box yet):**
 ```
-[0] Payment: user → platform_fee_address (0.8 ALGO)
-[1] Payment: user → contract (0.0217 ALGO box MBR)
-[2] AppCall: claim(epoch_id, cumulative_amount, proof...)
+[0] Payment: user → contract (0.0221 ALGO box MBR)
+[1] AppCall: claimRewards(epochId, cumulativeAmount, proof)
+    - fee: 0.005 ALGO (covers ensureBudget inner txns)
 ```
 
 **Subsequent claims:**
 ```
-[0] Payment: user → platform_fee_address (0.8 ALGO)
-[1] AppCall: claim(epoch_id, cumulative_amount, proof...)
-```
-
-**With budget helper** (for large proofs):
-```
-[0] Payment: user → platform_fee_address (0.8 ALGO)
-[1] AppCall: budget_helper (NoOp) — adds 700 opcodes
-[2] Payment: user → contract (0.0217 ALGO, first claim only)
-[3] AppCall: claim(epoch_id, cumulative_amount, proof...)
+[0] AppCall: claimRewards(epochId, cumulativeAmount, proof)
+    - fee: 0.005 ALGO
 ```
 
 ---
@@ -247,10 +280,10 @@ The script:
 - Skips pools that were generated recently (20h minimum for daily, 7 days for weekly)
 - Carries forward previous cumulatives for stakers who were active in prior epochs
 - Fetches `pool_id` from the contract global state (critical — never use a UUID hash)
-- Applies safeguards against reward inflation (cap at 2× daily rate)
+- Applies safeguards against reward inflation (cap at 2x daily rate)
 - Saves proofs and merkle roots to `merkle_epoch_claims` table
 
-After generating, the pool creator (or automated publisher) calls `set_root` on the contract to publish the epoch. Only after publishing will rewards show as claimable.
+After generating, the pool creator (or automated publisher) calls `setEpochRoot` on the contract to publish the epoch. Only after publishing will rewards show as claimable.
 
 ---
 
@@ -259,8 +292,8 @@ After generating, the pool creator (or automated publisher) calls `set_root` on 
 ### Decimals — use `??` not `||`
 Some tokens have 0 decimals (whole numbers only). Always use nullish coalescing:
 ```javascript
-const decimals = pool.reward_token_decimals ?? 6  // ✅ correct
-const decimals = pool.reward_token_decimals || 6  // ❌ wrong: 0 || 6 = 6
+const decimals = pool.reward_token_decimals ?? 6  // correct
+const decimals = pool.reward_token_decimals || 6  // wrong: 0 || 6 = 6
 ```
 
 ### Algorand asset pagination
@@ -277,66 +310,33 @@ do {
 
 ### Pool ID must come from contract
 ```python
-# ✅ correct
+# correct
 pool_id = get_contract_pool_id(app_id)
 
-# ❌ wrong — UUID hash won't match contract's uint64 pool_id
+# wrong — UUID hash won't match contract's uint64 pool_id
 pool_id = int(hashlib.sha256(uuid.encode()).hexdigest()[:16], 16)
 ```
 
 ---
 
-## Tests
+## Security Model
 
-The test suite covers contract behaviour end-to-end against a live Algorand node (testnet or localnet via AlgoKit).
+### On-chain protections
+- Merkle proof verification — only amounts authorized by the backend can be claimed
+- Cumulative model with delta payment — prevents double-claiming any epoch
+- Epoch monotonicity — roots are immutable, epoch IDs strictly increase
+- Leaf hash binds address + app_id + pool_id + epoch_id + amount — prevents all replay vectors
+- ASA balance check — contract verifies it holds enough tokens before transfer
 
-### What is tested
+### Off-chain protections
+- Balance verification at stake time (manage-stake) and claim time (get-merkle-proof)
+- Cross-pool balance deduplication — same tokens can't be staked in multiple pools
+- Rate limiting (10 operations per 60s per wallet)
+- Stake invalidation on balance shortfall (tokens moved out of wallet)
+- Input validation (address format, UUID format, numeric bounds)
 
-| Suite | File | Covers |
-|-------|------|--------|
-| Admin operations | `tests/test_admin_operations.py` | `set_root`, `pause`/`unpause`, `deprecate`, `emergency_withdraw`, fee address proposal + execution |
-| User claims | `tests/test_user_claims.py` | First claim (box creation), delta payments, zero-delta rejection, invalid Merkle proof rejection, missing fee rejection, backwards epoch rejection |
-
-Each test asserts on-chain state directly — box contents, token balances, and transaction acceptance/rejection — rather than mocking.
-
-### Setup
-
-```bash
-cd tests
-pip install -r requirements.txt
-```
-
-Create a `.env` file in the repo root (copy from `.env.example`):
-
-```env
-ALGOD_URL=https://testnet-api.algonode.cloud
-ALGOD_TOKEN=
-ADMIN_MNEMONIC=your twenty five word mnemonic here ...
-REWARD_ASSET_ID=12345678
-CONTRACT_APP_ID=12345678
-POOL_ID=12345678
-FEE_ADDRESS=YOURFEEADDRESSHERE
-```
-
-### Run
-
-```bash
-# Run all suites
-python -m pytest tests/ -v
-
-# Or run suites individually
-python -m pytest tests/test_admin_operations.py -v
-python -m pytest tests/test_user_claims.py -v
-```
-
-### Test utilities
-
-| File | Purpose |
-|------|---------|
-| `tests/utils/merkle_tree.py` | Pure-Python Merkle tree matching the on-chain SHA256 implementation |
-| `tests/utils/contract_helper.py` | Helpers to build claim/set_root transaction groups and read box storage |
-| `tests/utils/account_manager.py` | Funded test account management |
-| `tests/fixtures/test_data.py` | Epoch scenario generation and delta calculation helpers |
+### Soft staking tradeoff
+Tokens remain in the user's wallet. The system checks balances at epoch generation (snapshot) and at claim time, but does not track transaction history between these checkpoints. This is a deliberate design choice — full transaction monitoring would require expensive indexer queries and add latency, while the economic incentive to game soft staking (moving tokens between wallets between snapshots) is bounded by the per-epoch reward rate.
 
 ---
 
