@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Merkle Tree Utilities for NIKO Staking Platform (V1.3.3)
+Merkle Tree Utilities for Algorand Soft Staking (V1.3.3)
 
 This module provides functions to:
 1. Build Merkle trees from user claim data (CUMULATIVE MODEL)
