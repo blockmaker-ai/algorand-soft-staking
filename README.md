@@ -169,7 +169,7 @@ await client.create.create({
 | `optInAsset()` | Admin | Contract opts into reward ASA |
 | `fundPool(axfer)` | Admin | Deposit reward tokens (grouped with AssetTransfer) |
 | `claimRewards(epochId, amount, proof)` | Anyone | Claim with Merkle proof |
-| `deleteBox()` | Anyone | Delete own claim box, recover MBR |
+| `deleteBox()` | Anyone | Delete own claim box, recover MBR (pool must be deprecated) |
 | `setEpochRoot(epochId, root)` | Admin/Publisher | Publish epoch Merkle root |
 | `togglePause(state)` | Admin | Emergency pause/unpause |
 | `toggleDeprecated(state)` | Admin | One-way deprecation |

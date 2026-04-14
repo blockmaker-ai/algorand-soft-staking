@@ -262,6 +262,7 @@ export class StakingPool extends Contract {
    * Returns (boxMBR - minTxnFee) to the caller.
    */
   public deleteBox(): void {
+    assert(this.deprecated.value === Uint64(1), 'Pool must be deprecated')
     assert(this.userClaims(Txn.sender).exists, 'No box to delete')
 
     this.userClaims(Txn.sender).delete()
