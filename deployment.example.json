@@ -1,0 +1,13 @@
+{
+  "pool_id": "YOUR_POOL_UUID",
+  "app_id": "YOUR_APPLICATION_ID",
+  "reward_asset_id": "YOUR_REWARD_ASSET_ID",
+  "chain_pool_id": "1",
+  "opening_budget": "0",
+  "admin": "YOUR_ADMIN_ADDRESS",
+  "publisher": "YOUR_PUBLISHER_ADDRESS",
+  "buyback": "YOUR_FUNDING_ADDRESS",
+  "approval_sha256": "YOUR_COMPILED_APPROVAL_SHA256",
+  "genesis_id": "YOUR_GENESIS_ID",
+  "genesis_hash": "YOUR_GENESIS_HASH"
+}

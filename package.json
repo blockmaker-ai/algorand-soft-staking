@@ -1,0 +1,35 @@
+{
+  "name": "algorand-soft-staking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build-contracts.mjs",
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test scripts/tests/*.mjs",
+    "test:accounting": "python3 -B -m unittest discover -s scripts/tests -v",
+    "test:contracts": "vitest run --config vitest.config.mjs",
+    "test:edge": "deno test --config supabase/deno.json --allow-env --allow-read supabase/functions/_shared/tests",
+    "check:edge": "deno check --config supabase/deno.json supabase/functions/*/index.ts",
+    "check:public": "python3 -B scripts/check_public_tree.py",
+    "demo:localnet": "tsx scripts/deploy-localnet.ts"
+  },
+  "dependencies": {
+    "@algorandfoundation/algokit-utils": "9.2.0",
+    "@algorandfoundation/algorand-typescript": "1.1.0",
+    "algosdk": "3.5.2"
+  },
+  "devDependencies": {
+    "@algorandfoundation/algokit-client-generator": "6.0.1",
+    "@algorandfoundation/puya-ts": "1.1.0",
+    "@electric-sql/pglite": "0.5.8",
+    "@types/node": "22.13.10",
+    "tsx": "4.20.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

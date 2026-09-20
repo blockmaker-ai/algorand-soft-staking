@@ -1,0 +1,17 @@
+{
+  "imports": {
+    "npm:@supabase/supabase-js@2": "npm:@supabase/supabase-js@2.116.0",
+    "algosdk": "npm:algosdk@3.5.2",
+    "@algorandfoundation/algokit-utils": "npm:@algorandfoundation/algokit-utils@9.2.0",
+    "@algorandfoundation/algokit-utils/types/algorand-client": "npm:@algorandfoundation/algokit-utils@9.2.0/types/algorand-client",
+    "@algorandfoundation/algokit-utils/types/amount": "npm:@algorandfoundation/algokit-utils@9.2.0/types/amount",
+    "@algorandfoundation/algokit-utils/types/app": "npm:@algorandfoundation/algokit-utils@9.2.0/types/app",
+    "@algorandfoundation/algokit-utils/types/app-arc56": "npm:@algorandfoundation/algokit-utils@9.2.0/types/app-arc56",
+    "@algorandfoundation/algokit-utils/types/app-client": "npm:@algorandfoundation/algokit-utils@9.2.0/types/app-client",
+    "@algorandfoundation/algokit-utils/types/app-factory": "npm:@algorandfoundation/algokit-utils@9.2.0/types/app-factory",
+    "@algorandfoundation/algokit-utils/types/composer": "npm:@algorandfoundation/algokit-utils@9.2.0/types/composer",
+    "@algorandfoundation/algokit-utils/types/transaction": "npm:@algorandfoundation/algokit-utils@9.2.0/types/transaction",
+    "npm:algosdk@2.7.0": "npm:algosdk@2.7.0"
+  },
+  "nodeModulesDir": "none"
+}

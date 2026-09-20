@@ -1,0 +1,10 @@
+[algokit]
+min_version = "2.10.2"
+
+[project]
+type = "contract"
+name = "algorand-soft-staking"
+
+[project.run]
+build = { commands = ["npm run build"] }
+test = { commands = ["npm run test:contracts"] }
