@@ -1,0 +1,54 @@
+name: Funded rewards
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified funded rewards
+        type: boolean
+        default: false
+  schedule:
+    - cron: '5 0 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: funded-rewards
+  cancel-in-progress: false
+jobs:
+  rewards:
+    if: github.event_name == 'workflow_dispatch' || vars.FUNDED_REWARDS_PUBLICATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Verify, archive and optionally publish
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ALGOD_URL: ${{ vars.ALGOD_URL }}
+          ALGOD_TOKEN: ${{ secrets.ALGOD_TOKEN }}
+          ALGOD_TOKEN_HEADER: ${{ vars.ALGOD_TOKEN_HEADER }}
+          INDEXER_URL: ${{ vars.INDEXER_URL }}
+          INDEXER_TOKEN: ${{ secrets.INDEXER_TOKEN }}
+          INDEXER_TOKEN_HEADER: ${{ vars.INDEXER_TOKEN_HEADER }}
+          ALGORAND_GENESIS_ID: ${{ vars.ALGORAND_GENESIS_ID }}
+          ALGORAND_GENESIS_HASH: ${{ vars.ALGORAND_GENESIS_HASH }}
+          FUNDED_POOL_IDS: ${{ vars.FUNDED_POOL_IDS }}
+          FUNDED_REWARDS_PUBLICATION_ENABLED: ${{ vars.FUNDED_REWARDS_PUBLICATION_ENABLED }}
+          INPUT_PUBLISH: ${{ github.event.inputs.publish }}
+          RUN_EVENT: ${{ github.event_name }}
+        run: |
+          python - <<'PYCODE'
+          import json, os, subprocess, sys, uuid
+          pools=json.loads(os.environ['FUNDED_POOL_IDS'])
+          if not isinstance(pools,list) or not pools or any(not isinstance(p,str) or str(uuid.UUID(p))!=p for p in pools):
+              raise SystemExit('Configure a nonempty JSON array of pool UUIDs')
+          args=[sys.executable,'-B','scripts/run_funded_rewards.py','--output-dir',os.environ['RUNNER_TEMP']+'/funded-evidence']
+          for pool in pools: args.extend(['--pool-id',pool])
+          if os.environ['RUN_EVENT']=='schedule' or os.environ['INPUT_PUBLISH']=='true': args.append('--publish')
+          raise SystemExit(subprocess.call(args))
+          PYCODE
+      # Wallet-history evidence stays in private Storage, never public CI artifacts.

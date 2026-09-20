@@ -1,0 +1,21 @@
+project_id = "algorand-soft-staking"
+
+[functions.pool-action-challenge]
+verify_jwt = false
+entrypoint = "./functions/pool-action-challenge/index.ts"
+import_map = "./deno.json"
+
+[functions.manage-stake]
+verify_jwt = false
+entrypoint = "./functions/manage-stake/index.ts"
+import_map = "./deno.json"
+
+[functions.funded-publish]
+verify_jwt = false
+entrypoint = "./functions/funded-publish/index.ts"
+import_map = "./deno.json"
+
+[functions.funded-pools]
+verify_jwt = false
+entrypoint = "./functions/funded-pools/index.ts"
+import_map = "./deno.json"
